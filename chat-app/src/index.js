@@ -4,6 +4,7 @@ const http = require('http')
 const Filter = require('bad-words')
 const socketio = require('socket.io')
 const { generateMessage, generateLocationMessage } = require('./utils/messages')
+const { addUser, removeUser, getUser, getUsersInRoom } = require('./utils/users')
 
 const app = express()
 const server = http.createServer(app)
@@ -18,13 +19,15 @@ io.on('connection', (socket) => {
     console.log('New web socket connection.')
 
     // Join a room
-    socket.on('join', ({ username, room }) => {
-        socket.join(room)
-
+    socket.on('join', (options, callback) => {
+        const { error, user } = addUser({ id: socket.id, ...options})
+        if(error) return callback(error)
+        socket.join(user.room)
         // Welcome message
         socket.emit('message', generateMessage('Welcome to my chatroom.'))
         // Broadcast user entry
-        socket.broadcast.to(room).emit('message', generateMessage(`A ${username} has joined the room.`))
+        socket.broadcast.to(user.room).emit('message', generateMessage(`A ${user.username} has joined the room.`))
+        callback()
     })
 
     // Send message to particular user
@@ -44,7 +47,8 @@ io.on('connection', (socket) => {
 
     // Disconnect user message
     socket.on('disconnect', () => {
-        io.emit('message', generateMessage('A user has left.'))
+        const user = removeUser(socket.id)
+        if(user) io.to(user.room).emit('message', generateMessage(`${username} has left`))
     })
 
 })
