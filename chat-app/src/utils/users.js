@@ -32,7 +32,7 @@ const removeUser = (id) => {
 
 // Get a user
 const getUser = (id) => {
-    return users.findIndex((user) => user.id === id)
+    return users.find((user) => user.id === id)
 }
 
 // Get users in a room

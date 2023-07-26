@@ -10,24 +10,61 @@ const $messages = document.querySelector('#messages')
 // templates
 const messageTemplate = document.querySelector('#message-template').innerHTML
 const messageTemplatelocation = document.querySelector('#message-template-location').innerHTML
+const messageTemplatesidebar = document.querySelector('#sidebar-template').innerHTML
 
 // Options
 const { username, room } = Qs.parse(location.search, { ignoreQueryPrefix: true})
 
+const autoscroll = () => {
+    // New message element
+    const $newMessage = $messages.lastElementChild
+
+    // Height of new message
+    const newMessageStyles = getComputedStyle($newMessage)
+    const newMessageMargin = parseInt(newMessageStyles.marginBottom)
+    const newMessageHeight = $newMessage.offsetHeight + newMessageMargin
+
+    // Visible height
+    const visibleHeight = $messages.offsetHeight
+    
+    // Height of container message
+    const containerHeight = $messages.scrollHeight
+
+    // Height of scroll
+    const scrollHeight = $messages.scrollTop + visibleHeight
+
+    if(containerHeight - newMessageHeight <= scrollHeight){
+        $messages.scrollTop = $messages.scrollHeight
+    }
+
+}
+
 socket.on('message', (message) => {
     const html = Mustache.render(messageTemplate, {
+        username: message.username,
         message: message.text,
         createdAt: moment(message.createdAt).format('h:mm A')
     })
     $messages.insertAdjacentHTML('beforeend', html)
+    autoscroll()
 })
 
 socket.on('locationMessage', (message) => {
     const html = Mustache.render(messageTemplatelocation, {
+        username: message.username,
         url: message.url,
         createdAt: moment(message.createdAt).format('h:mm A')
     })
     $messages.insertAdjacentHTML('beforeend', html)
+    autoscroll()
+})
+
+socket.on('roomData', ({room, users}) => {
+    const html = Mustache.render(messageTemplatesidebar, {
+        room,
+        users
+    })
+    document.querySelector('#sidebar').innerHTML = html
 })
 
 $messageForm.addEventListener('submit', (e) => {
@@ -43,7 +80,7 @@ $messageForm.addEventListener('submit', (e) => {
         $button.removeAttribute('disabled')
         $input.value = ''
         $input.focus()
-        if(error) return console.log(error)
+        if(error) return alert(error)
         console.log('Message delivered.')
     })
 })
@@ -67,5 +104,8 @@ $locationButton.addEventListener('click', () => {
 })
 
 socket.emit('join', { username, room }, (error) => {
-    
+    if(error){
+        alert(error)
+        location.href = '/'
+    } 
 } )
