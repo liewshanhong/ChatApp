@@ -3,6 +3,7 @@ const path = require('path')
 const http = require('http')
 const Filter = require('bad-words')
 const socketio = require('socket.io')
+const { generateMessage, generateLocationMessage } = require('./utils/messages')
 
 const app = express()
 const server = http.createServer(app)
@@ -13,31 +14,37 @@ const publicDirectoryPath = path.join(__dirname, '../public')
 
 app.use(express.static(publicDirectoryPath))
 
-let count = 0
-const welcome = 'Welcome to my chatroom!'
-
 io.on('connection', (socket) => {
     console.log('New web socket connection.')
 
-    socket.broadcast.emit('message', 'A new user has joined the chat.')
+    // Join a room
+    socket.on('join', ({ username, room }) => {
+        socket.join(room)
 
-    socket.emit('message', welcome)
+        // Welcome message
+        socket.emit('message', generateMessage('Welcome to my chatroom.'))
+        // Broadcast user entry
+        socket.broadcast.to(room).emit('message', generateMessage(`A ${username} has joined the room.`))
+    })
 
+    // Send message to particular user
     socket.on('sendMessage', (message, callback) =>{
         const filter = new Filter()
         if(filter.isProfane(message)) return callback('Profanity is not allowed.')
 
-        io.emit('message', message)
+        io.emit('message', generateMessage(message))
         callback('Delivered.')
     })
 
+    // Send location to chatroom
     socket.on('sendLocation', (location, callback) => {
-        io.emit('message', `https://google.com/maps?q=${ location.latitude },${ location.longitude }`)
+        io.emit('locationMessage', generateLocationMessage(`https://google.com/maps?q=${ location.latitude },${ location.longitude }`))
         callback()
     })
 
+    // Disconnect user message
     socket.on('disconnect', () => {
-        io.emit('message', 'A user has left.')
+        io.emit('message', generateMessage('A user has left.'))
     })
 
 })
